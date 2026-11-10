@@ -6,6 +6,8 @@ Every notable change to CloneX, newest first. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-10
+
 ### 🚀 Highlights
 
 - **Server Mirror is now CloneX.** The command is `clonex` and the Python package is `clonex`.
