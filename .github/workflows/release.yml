@@ -106,8 +106,8 @@ jobs:
           git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-tap.git" tap
           cp manifests/clonex.rb tap/Casks/clonex.rb
           cd tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "$GITHUB_REPOSITORY_OWNER"
+          git config user.email "${GITHUB_REPOSITORY_OWNER_ID}+${GITHUB_REPOSITORY_OWNER}@users.noreply.github.com"
           git add Casks/clonex.rb
           git commit -m "clonex ${GITHUB_REF_NAME#v}"
           git push
@@ -117,8 +117,8 @@ jobs:
           git clone --depth 1 "https://x-access-token:${SCOOP_BUCKET_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/scoop-bucket.git" bucket
           cp manifests/clonex.json bucket/clonex.json
           cd bucket
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "$GITHUB_REPOSITORY_OWNER"
+          git config user.email "${GITHUB_REPOSITORY_OWNER_ID}+${GITHUB_REPOSITORY_OWNER}@users.noreply.github.com"
           git add clonex.json
           git commit -m "clonex ${GITHUB_REF_NAME#v}"
           git push
