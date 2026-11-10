@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clonex"
+description = "Preview and copy the structure of a Discord server."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE.md"]
+dynamic = ["version"]
+dependencies = [
+    "discord.py-self>=2.1.0,<3.0",
+    "rich>=15.0.0,<16.0",
+]
+
+[project.scripts]
+clonex = "clonex.cli:main"
+
+[project.urls]
+Repository = "https://github.com/kaanxsrd/CloneX"
+Changelog = "https://github.com/kaanxsrd/CloneX/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "mypy==1.20.2",
+    "pip-audit==2.10.1",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
+]
+build = [
+    "pyinstaller==6.22.3",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "clonex.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["clonex*"]
+
+[tool.setuptools.package-data]
+clonex = ["locales/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "scripts"]
+filterwarnings = ["error::RuntimeWarning"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "ASYNC", "C4", "PIE", "RET", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["clonex"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true

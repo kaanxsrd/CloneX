@@ -1,0 +1,124 @@
+name: Release
+
+# Pushing a tag such as v1.2.0 builds every platform and publishes a GitHub Release, then updates
+# the Homebrew tap and Scoop bucket. Create the tag with scripts/release.py.
+#
+# Repository secrets used here:
+#   secrets.HOMEBREW_TAP_TOKEN  push access to kaanxsrd/homebrew-tap (optional)
+#   secrets.SCOOP_BUCKET_TOKEN  push access to kaanxsrd/scoop-bucket (optional)
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python3 scripts/release.py check "$GITHUB_REF_NAME"
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest
+
+  build:
+    name: Build on ${{ matrix.os }}
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - windows-11-arm
+          - ubuntu-22.04 # the oldest glibc still hosted, so the binary runs on more systems
+          - ubuntu-22.04-arm
+          - macos-15
+          - macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen --no-dev --group build
+      - id: build
+        run: uv run --frozen --no-dev --group build python scripts/build.py
+      - uses: actions/upload-artifact@v7
+        with:
+          name: archive-${{ matrix.os }}
+          path: ${{ steps.build.outputs.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: archive-*
+          merge-multiple: true
+      - name: Write checksums
+        working-directory: release-assets
+        run: sha256sum clonex_* | tee checksums.txt
+      - run: python3 scripts/release.py notes "$GITHUB_REF_NAME" > release-notes.md
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" release-assets/*
+          --verify-tag
+          --title "CloneX ${GITHUB_REF_NAME#v}"
+          --notes-file release-notes.md
+      - name: Render package manager manifests
+        run: python3 scripts/package_managers.py "${GITHUB_REF_NAME#v}" release-assets/checksums.txt manifests
+      - name: Update the Homebrew tap
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        run: |
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-tap.git" tap
+          cp manifests/clonex.rb tap/Casks/clonex.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/clonex.rb
+          git commit -m "clonex ${GITHUB_REF_NAME#v}"
+          git push
+      - name: Update the Scoop bucket
+        if: env.SCOOP_BUCKET_TOKEN != ''
+        run: |
+          git clone --depth 1 "https://x-access-token:${SCOOP_BUCKET_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/scoop-bucket.git" bucket
+          cp manifests/clonex.json bucket/clonex.json
+          cd bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add clonex.json
+          git commit -m "clonex ${GITHUB_REF_NAME#v}"
+          git push
